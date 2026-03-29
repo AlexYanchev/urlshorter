@@ -57,7 +57,7 @@ func TestHandler_CreateShortURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := New()
+			h := New("http://localhost:8080")
 			req := httptest.NewRequest(tt.method, "/", bytes.NewBufferString(tt.body))
 			req.Host = "localhost:8080"
 
@@ -101,7 +101,7 @@ func TestHandler_CreateShortURL(t *testing.T) {
 func TestHandler_RedirectURL(t *testing.T) {
 	originalURL := "http://example.ru/test"
 
-	h := New()
+	h := New("http://localhost:8080")
 	r := chi.NewRouter()
 	r.Post("/", h.CreateShortURL)
 	r.Get("/{id}", h.RedirectURL)
