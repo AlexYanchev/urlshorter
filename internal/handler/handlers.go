@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/AlexYanchev/urlshorter/internal/constants"
 	"github.com/AlexYanchev/urlshorter/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
@@ -40,7 +40,12 @@ func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shortID := h.service.CreateShortURL(originalURL)
-	shortURL := fmt.Sprintf("http://%s/%s", r.Host, shortID)
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+
+	shortURL := fmt.Sprintf("%s://%s/%s", scheme, r.Host, shortID)
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
@@ -53,13 +58,13 @@ func (h *Handler) RedirectURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	path := strings.TrimPrefix(r.URL.Path, "/")
-	if path == "" {
+	id := chi.URLParam(r, "id")
+	if id == "" {
 		http.Error(w, constants.StatusIDNotProvided, http.StatusBadRequest)
 		return
 	}
 
-	originalURL, exists := h.service.GetOriginalURL(path)
+	originalURL, exists := h.service.GetOriginalURL(id)
 	if !exists {
 		http.Error(w, constants.StatusURLNotFound, http.StatusNotFound)
 		return

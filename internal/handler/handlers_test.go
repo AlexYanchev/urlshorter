@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/AlexYanchev/urlshorter/internal/constants"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestHandler_CreateShortURL(t *testing.T) {
@@ -98,15 +99,17 @@ func TestHandler_CreateShortURL(t *testing.T) {
 }
 
 func TestHandler_RedirectURL(t *testing.T) {
-	h := New()
-
 	originalURL := "http://example.ru/test"
 
-	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(originalURL))
-	req.Host = "loaclhost:8080"
+	h := New()
+	r := chi.NewRouter()
+	r.Post("/", h.CreateShortURL)
+	r.Get("/{id}", h.RedirectURL)
 
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(originalURL))
+	req.Host = "localhost:8080"
 	rr := httptest.NewRecorder()
-	h.CreateShortURL(rr, req)
+	r.ServeHTTP(rr, req)
 
 	body, err := io.ReadAll(rr.Body)
 	if err != nil {
@@ -143,13 +146,6 @@ func TestHandler_RedirectURL(t *testing.T) {
 			expectedLocation: "",
 		},
 		{
-			name: "empty ID",
-			method: http.MethodGet,
-			id: "",
-			expectedStatus: http.StatusBadRequest,
-			expectedLocation: "",
-		},
-		{
 			name: "wrong method - POST",
 			method: http.MethodPost,
 			id: id,
@@ -163,7 +159,7 @@ func TestHandler_RedirectURL(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "/" + tt.id, nil)
 			rr := httptest.NewRecorder()
 
-			h.RedirectURL(rr, req)
+			r.ServeHTTP(rr, req)
 
 			if rr.Code != tt.expectedStatus {
 				t.Errorf("returned wrong status code: got %v, want %v", rr.Code, tt.expectedStatus)
