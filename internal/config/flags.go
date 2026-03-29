@@ -2,8 +2,8 @@ package config
 
 import (
 	"flag"
-	"fmt"
 	"net"
+	"strings"
 )
 
 type AddressWithPortFlag string
@@ -14,20 +14,13 @@ func (o *AddressWithPortFlag) String() string {
 
 func (a *AddressWithPortFlag) Set(value string) error {
 	if value == "" {
-		value = "http://localhost:8080"
+		value = "localhost:8080"
 	}
 
-	host, port, err := net.SplitHostPort(value)
+	_, _, err := net.SplitHostPort(value)
 	if err != nil {
-		return fmt.Errorf("wrong format. Example: <addr>:<port>")
+		value = "localhost:8080"
 	}
-
-	if host == "" {
-        return fmt.Errorf("host cannot be empty")
-    }
-    if port == "" {
-        return fmt.Errorf("port cannot be empty")
-    }
 
 	*a = AddressWithPortFlag(value)
 
@@ -36,14 +29,26 @@ func (a *AddressWithPortFlag) Set(value string) error {
 
 type Config struct {
 	AppAddress AddressWithPortFlag
-	BaseShortURL AddressWithPortFlag
+	BaseShortURL string
 }
 
 func NewConfig() *Config {
-	config := new(Config)
+	config := &Config{
+		AppAddress:   "localhost:8080",
+		BaseShortURL: "http://localhost:8080",
+	}
 	flag.Var(&config.AppAddress, "a", "application launch address (for example, localhost:8888)")
-	flag.Var(&config.BaseShortURL, "b", "the base address for the short URL")
+	flag.StringVar(&config.BaseShortURL, "b", "", "the base address for the short URL")
 	flag.Parse()
+
+	if config.BaseShortURL == "" {
+		config.BaseShortURL = "http://" + config.AppAddress.String()
+	}
+
+	if !strings.HasPrefix(config.BaseShortURL, "http://") && !strings.HasPrefix(config.BaseShortURL, "https://") {
+		config.BaseShortURL = "http://" + config.BaseShortURL
+	} 
+	
 
 	return config
 }

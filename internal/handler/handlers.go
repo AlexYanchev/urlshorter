@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
-	"github.com/AlexYanchev/urlshorter/internal/config"
 	"github.com/AlexYanchev/urlshorter/internal/constants"
 	"github.com/AlexYanchev/urlshorter/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -13,10 +13,10 @@ import (
 
 type Handler struct {
 	service *service.Service
-	baseAddressShortURL config.AddressWithPortFlag
+	baseAddressShortURL string
 }
 
-func New(baseAddressShortURL config.AddressWithPortFlag) *Handler {
+func New(baseAddressShortURL string) *Handler {
 	return &Handler{
 		service: service.New(),
 		baseAddressShortURL: baseAddressShortURL,
@@ -43,12 +43,14 @@ func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shortID := h.service.CreateShortURL(originalURL)
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
+
+	host := h.baseAddressShortURL
+
+	if before, ok := strings.CutSuffix(host, "/"); ok  {
+		host = before
 	}
 
-	shortURL := fmt.Sprintf("%s://%s/%s", scheme, h.baseAddressShortURL, shortID)
+	shortURL := fmt.Sprintf("%s/%s", host, shortID)
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
