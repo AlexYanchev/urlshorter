@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/AlexYanchev/urlshorter/internal/constants"
 	"github.com/AlexYanchev/urlshorter/internal/service"
 )
 
@@ -21,20 +22,21 @@ func New() *Handler {
 
 func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, constants.StatusMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		http.Error(w, constants.StatusFailedReadBody, http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
 	originalURL := string(body)
 	if originalURL == "" {
-		http.Error(w, "URL cannot be empty", http.StatusBadRequest)
+		http.Error(w, constants.StatusEmptyURL, http.StatusBadRequest)
+		return
 	}
 
 	shortID := h.service.CreateShortURL(originalURL)
@@ -47,19 +49,19 @@ func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RedirectURL(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, constants.StatusMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	if path == "" {
-		http.Error(w, "ID not provided", http.StatusBadRequest)
+		http.Error(w, constants.StatusIDNotProvided, http.StatusBadRequest)
 		return
 	}
 
 	originalURL, exists := h.service.GetOriginalURL(path)
 	if !exists {
-		http.Error(w, "URL not found", http.StatusNotFound)
+		http.Error(w, constants.StatusURLNotFound, http.StatusNotFound)
 		return
 	}
 
