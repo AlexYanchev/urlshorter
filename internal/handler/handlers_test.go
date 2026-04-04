@@ -11,8 +11,17 @@ import (
 	"testing"
 
 	"github.com/AlexYanchev/urlshorter/internal/constants"
+	"github.com/AlexYanchev/urlshorter/internal/repository"
+	"github.com/AlexYanchev/urlshorter/internal/service"
 	"github.com/go-chi/chi/v5"
 )
+
+func initService() URLService {
+	repo := repository.New()
+	service := service.New(repo)
+
+	return service
+}
 
 func TestHandler_CreateShortURL(t *testing.T) {
 	testBody := "http://example.ru"
@@ -44,26 +53,29 @@ func TestHandler_CreateShortURL(t *testing.T) {
 			method: http.MethodGet,
 			body: testBody,
 			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody: constants.StatusMethodNotAllowed,
+			expectedBody: "",
 		},
 		{
 			name: "wrong method - PUT",
 			method: http.MethodPut,
 			body: testBody,
 			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody: constants.StatusMethodNotAllowed,
+			expectedBody: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := New("http://localhost:8080")
+			service := initService()
+			h := New("http://localhost:8080", service)
+			r := chi.NewRouter()
+			r.Post("/", h.CreateShortURL)
+
 			req := httptest.NewRequest(tt.method, "/", bytes.NewBufferString(tt.body))
 			req.Host = "localhost:8080"
-
 			rr := httptest.NewRecorder()
 
-			h.CreateShortURL(rr, req)
+			r.ServeHTTP(rr, req)
 
 			if rr.Code != tt.expectedStatus {
 				t.Errorf("wrong returned status code: got %v want %v", rr.Code, tt.expectedStatus)
@@ -101,7 +113,8 @@ func TestHandler_CreateShortURL(t *testing.T) {
 func TestHandler_RedirectURL(t *testing.T) {
 	originalURL := "http://example.ru/test"
 
-	h := New("http://localhost:8080")
+	service := initService()
+	h := New("http://localhost:8080", service)
 	r := chi.NewRouter()
 	r.Post("/", h.CreateShortURL)
 	r.Get("/{id}", h.RedirectURL)

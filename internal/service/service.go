@@ -3,38 +3,46 @@ package service
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"sync"
+	"fmt"
 )
 
-type Service struct {
-	storage map[string]string
-	mu      sync.RWMutex
+type URLRepository interface {
+	Save(id, value string) error
+	Get(id string) (string, bool)
 }
 
-func New() *Service {
+type Service struct {
+	repository URLRepository
+}
+
+func New(r URLRepository) *Service {
 	return &Service{
-		storage: make(map[string]string),
+		repository: r,
 	}
 }
 
-func (s *Service) CreateShortURL(originalURL string) string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Service) CreateShortURL(originalURL string) (string, error) {
+	maxGeneration := 10000
 
-	id := generateID()
+	for range maxGeneration {
+		id := generateID()
+		err := s.repository.Save(id, originalURL)
 
-	s.storage[id] = originalURL
+		if err == nil {
+			return id, nil
+		}
+	}
 
-	return id
+	return "", fmt.Errorf("cannot generate unique ID")
 }
 
-func (s *Service) GetOriginalURL(id string) (string, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+func (s *Service) GetOriginalURL(id string) (string, error) {
+	originalURL, exists := s.repository.Get(id)
+	if !exists {
+		return "", fmt.Errorf("url not exist")
+	}
 
-	originalURL, exists := s.storage[id]
-
-	return originalURL, exists
+	return originalURL, nil
 }
 
 func generateID() string {
