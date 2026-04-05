@@ -16,7 +16,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func initService() URLService {
+func initService(t *testing.T) URLService {
+	t.Helper()
+
 	repo := repository.New()
 	service := service.New(repo)
 
@@ -66,7 +68,7 @@ func TestHandler_CreateShortURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := initService()
+			service := initService(t)
 			h := New("http://localhost:8080", service)
 			r := chi.NewRouter()
 			r.Post("/", h.CreateShortURL)
@@ -113,7 +115,7 @@ func TestHandler_CreateShortURL(t *testing.T) {
 func TestHandler_RedirectURL(t *testing.T) {
 	originalURL := "http://example.ru/test"
 
-	service := initService()
+	service := initService(t)
 	h := New("http://localhost:8080", service)
 	r := chi.NewRouter()
 	r.Post("/", h.CreateShortURL)

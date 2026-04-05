@@ -19,8 +19,8 @@ func (r *Repository) Save(id, value string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	_, exist := r.data[id]
-	if exist {
+	_, ok := r.data[id]
+	if ok {
 		return ErrDublicateID
 	}
 

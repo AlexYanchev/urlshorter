@@ -3,7 +3,10 @@ package service
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
+
+	"github.com/AlexYanchev/urlshorter/internal/repository"
 )
 
 type URLRepository interface {
@@ -31,6 +34,12 @@ func (s *Service) CreateShortURL(originalURL string) (string, error) {
 		if err == nil {
 			return id, nil
 		}
+
+		if errors.Is(err, repository.ErrDublicateID) {
+			continue
+		}
+
+		return "", fmt.Errorf("failed to save: %w", err)
 	}
 
 	return "", fmt.Errorf("cannot generate unique ID")
