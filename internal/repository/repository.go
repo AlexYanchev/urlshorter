@@ -32,7 +32,7 @@ func (r *Repository) Get(id string) (string, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	value, exists := r.data[id]
+	value, ok := r.data[id]
 
-	return value, exists
+	return value, ok
 } 
