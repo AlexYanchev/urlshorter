@@ -17,14 +17,14 @@ func main() {
 	service := service.New(repo)
 
 	r := chi.NewRouter()
-	h := handler.New(config.BaseShortURL, service)
+	h := handler.New(config.BaseURL, service)
 
 	r.Post("/", h.CreateShortURL)
 	r.Get("/{id}", h.RedirectURL)
 
-	log.Printf("Server starting on %s. Base address for short url: %s", config.AppAddress, config.BaseShortURL)
+	log.Printf("Server starting on %s. Base address for short url: %s", config.ServerAddress, config.BaseURL)
 	
-	err := http.ListenAndServe(string(config.AppAddress), r)
+	err := http.ListenAndServe(string(config.ServerAddress), r)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("HTTP server failed: %v", err)
 	}
