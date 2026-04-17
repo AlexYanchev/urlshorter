@@ -2,11 +2,18 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/caarlos0/env/v6"
+)
+
+const (
+	DefaultServerAddress = "localhost:8080"
+	DefaultBaseURL       = "http://localhost:8080"
 )
 
 type Config struct {
@@ -15,10 +22,13 @@ type Config struct {
 }
 
 func (c *Config) ParseFlags() {
-	flag.StringVar(&c.ServerAddress, "a", "localhost:8080", "application launch address (for example, localhost:8888)")
-	flag.StringVar(&c.BaseURL, "b", "http://localhost:8080", "the base address for the short URL")
+	flagSet := flag.NewFlagSet("config", flag.ContinueOnError)
+	flagSet.StringVar(&c.ServerAddress, "a", DefaultServerAddress, "application launch address (for example, localhost:8888)")
+	flagSet.StringVar(&c.BaseURL, "b", DefaultBaseURL, "the base address for the short URL")
 
-	flag.Parse()
+	if err := flagSet.Parse(os.Args[1:]); err != nil {
+		log.Printf("flag parsing error: %v", err)
+	}
 }
 
 func (c *Config) ParseEnv() {
@@ -29,9 +39,17 @@ func (c *Config) ParseEnv() {
 }
 
 func (c *Config) normalize() {
-	_, _, err := net.SplitHostPort(c.ServerAddress)
+	host, port, err := net.SplitHostPort(c.ServerAddress)
 	if err != nil {
-		c.ServerAddress = "localhost:8080"
+		c.ServerAddress = DefaultServerAddress
+	}
+
+	if host == "" {
+		c.ServerAddress = fmt.Sprintf("localhost:%s", port)
+	}
+
+	if port == "" {
+		c.ServerAddress = fmt.Sprintf("%s:8080", host)
 	}
 
 	if c.BaseURL == "" {
