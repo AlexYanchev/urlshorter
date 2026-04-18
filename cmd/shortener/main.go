@@ -30,9 +30,10 @@ func main() {
 
 	r.Use(middlewares.Logging)
 
+	r.Post("/api/shorten", h.CreateShortURLJson)
 	r.Post("/", h.CreateShortURL)
 	r.Get("/{id}", h.RedirectURL)
-	
+
 	logger.SugaredLogger.Infow(
         "Starting server",
         "addr", config.ServerAddress,

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -19,11 +20,61 @@ type Handler struct {
 	baseAddressShortURL string
 }
 
+type RequestJSON struct {
+	URL string `json:"url"`
+}
+
+type ResponseJSON struct {
+	Result string `json:"result"`
+}
+
 func New(baseAddressShortURL string, service URLService) *Handler {
 	return &Handler{
 		service: service,
 		baseAddressShortURL: baseAddressShortURL,
 	}
+}
+
+func (h *Handler) CreateShortURLJson(w http.ResponseWriter, r *http.Request) {
+	var request RequestJSON
+	
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, constants.StatusInvalidJSON, http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	if request.URL == "" {
+		http.Error(w, constants.StatusInvalidURL, http.StatusBadRequest)
+		return
+	}
+
+	if _, err := url.ParseRequestURI(request.URL); err != nil {
+		http.Error(w, constants.StatusInvalidURL, http.StatusBadRequest)
+		return
+	}
+
+	shortID, err := h.service.CreateShortURL(request.URL)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	host := h.baseAddressShortURL
+	shortURL, err := url.JoinPath(host, shortID)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	response := ResponseJSON{
+		Result: shortURL,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
