@@ -89,6 +89,11 @@ func Gzip(h http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Accept-Encoding:", r.Header.Get("Accept-Encoding"))
         log.Println("Content-Encoding:", r.Header.Get("Content-Encoding"))
+
+		if r.URL.Path == "/api/shorten" && r.Method == "POST" {
+            h.ServeHTTP(w, r)
+            return
+        }
 		
         ow := w
 
