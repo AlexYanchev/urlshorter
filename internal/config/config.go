@@ -14,17 +14,20 @@ import (
 const (
 	DefaultServerAddress = "localhost:8080"
 	DefaultBaseURL       = "http://localhost:8080"
+	DefaultFileStoragePath = "storage.json"
 )
 
 type Config struct {
 	ServerAddress string `env:"SERVER_ADDRESS"`
 	BaseURL       string `env:"BASE_URL"`
+	FileStoragePath  string `env:"FILE_STORAGE_PATH"`
 }
 
 func (c *Config) ParseFlags() {
 	flagSet := flag.NewFlagSet("config", flag.ContinueOnError)
 	flagSet.StringVar(&c.ServerAddress, "a", DefaultServerAddress, "application launch address (for example, localhost:8888)")
 	flagSet.StringVar(&c.BaseURL, "b", DefaultBaseURL, "the base address for the short URL")
+	flagSet.StringVar(&c.FileStoragePath, "f", DefaultFileStoragePath, "file storage path")
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		log.Printf("flag parsing error: %v", err)

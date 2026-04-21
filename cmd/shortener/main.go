@@ -22,7 +22,7 @@ func main() {
 	defer logger.SugaredLogger.Sync()
 
 	config := config.NewConfig()
-	repo := repository.New()
+	repo := repository.New(config.FileStoragePath)
 	service := service.New(repo)
 
 	r := chi.NewRouter()

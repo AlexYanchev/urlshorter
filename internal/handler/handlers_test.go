@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/AlexYanchev/urlshorter/internal/config"
 	"github.com/AlexYanchev/urlshorter/internal/constants"
 	"github.com/AlexYanchev/urlshorter/internal/repository"
 	"github.com/AlexYanchev/urlshorter/internal/service"
@@ -20,7 +21,7 @@ import (
 func initService(t *testing.T) URLService {
 	t.Helper()
 
-	repo := repository.New()
+	repo := repository.New(config.DefaultFileStoragePath)
 	service := service.New(repo)
 
 	return service
