@@ -70,8 +70,11 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 }
 
 func (c *compressWriter) Close() error {
-	if c.compressed {
+	if !c.wroteHeader {
 		c.ensureHeaderWritten()
+	}
+
+	if c.compressed {
 		return c.zw.Close()
 	}
 	return nil
@@ -115,9 +118,7 @@ func Gzip(h http.Handler) http.Handler {
 			cw := newCompressWriter(w)
 			ow = cw
 			defer func() {
-				if cw.compressed {
-					cw.Close()
-				}
+				cw.Close()
 			}()
 		}
 
