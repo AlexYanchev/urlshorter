@@ -3,7 +3,6 @@ package middlewares
 import (
 	"compress/gzip"
 	"io"
-	"log"
 	"net/http"
 	"slices"
 	"strings"
@@ -27,9 +26,6 @@ func (c *compressWriter) Header() http.Header {
 }
 
 func (c *compressWriter) Write(p []byte) (int, error) {
-	log.Printf("compressWriter.Write: len=%d, compressed=%v\n", len(p), c.compressed)
-	log.Printf("Content-Type: %s\n", c.w.Header().Get("Content-Type"))
-
 	if c.compressed {
         return c.zw.Write(p)
     }
@@ -87,10 +83,10 @@ func (c *compressReader) Close() error {
 
 func Gzip(h http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/shorten" && r.Method == "POST" {
-            h.ServeHTTP(w, r)
-            return
-        }
+		// if r.URL.Path == "/api/shorten" && r.Method == "POST" {
+        //     h.ServeHTTP(w, r)
+        //     return
+        // }
 		
         ow := w
 
