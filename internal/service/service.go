@@ -12,6 +12,7 @@ import (
 type URLRepository interface {
 	Save(id, value string) error
 	Get(id string) (string, bool)
+	Ping() error
 }
 
 type Service struct {
@@ -54,10 +55,14 @@ func (s *Service) GetOriginalURL(id string) (string, error) {
 	return originalURL, nil
 }
 
+func (s *Service) Ping() error {
+	return s.repository.Ping()
+}
+
 func generateID() string {
 	b := make([]byte, 6)
 
 	rand.Read(b)
-	
+
 	return base64.URLEncoding.EncodeToString(b)[:6]
 }

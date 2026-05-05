@@ -8,7 +8,6 @@ import (
 	"github.com/AlexYanchev/urlshorter/internal/handler"
 	"github.com/AlexYanchev/urlshorter/internal/logger"
 	"github.com/AlexYanchev/urlshorter/internal/middlewares"
-	"github.com/AlexYanchev/urlshorter/internal/repository"
 	"github.com/AlexYanchev/urlshorter/internal/service"
 	"github.com/go-chi/chi/v5"
 )
@@ -22,7 +21,14 @@ func main() {
 	defer logger.SugaredLogger.Sync()
 
 	config := config.NewConfig()
-	repo := repository.New(config.FileStoragePath)
+	repo, closeRepo, err := buildRepository(config)
+	if err != nil {
+		logger.SugaredLogger.Fatalw("failed to build repository", "error", err)
+	}
+	if closeRepo != nil {
+		defer closeRepo()
+	}
+
 	service := service.New(repo)
 
 	r := chi.NewRouter()
@@ -30,15 +36,18 @@ func main() {
 
 	r.Use(middlewares.Gzip, middlewares.Logging)
 
+	r.Get("/ping", h.PingDatabase)
 	r.Post("/api/shorten", h.CreateShortURLJson)
 	r.Post("/", h.CreateShortURL)
 	r.Get("/{id}", h.RedirectURL)
 
 	logger.SugaredLogger.Infow(
-        "Starting server",
-        "addr", config.ServerAddress,
-        "base_url", config.BaseURL,
-    )
+		"Starting server",
+		"addr", config.ServerAddress,
+		"base_url", config.BaseURL,
+		"database_dsn", config.DatabaseDSN,
+		"file_storage_path", config.FileStoragePath,
+	)
 
 	err = http.ListenAndServe(config.ServerAddress, r)
 	if err != nil && err != http.ErrServerClosed {

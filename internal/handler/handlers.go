@@ -13,10 +13,11 @@ import (
 type URLService interface {
 	CreateShortURL(originalURL string) (string, error)
 	GetOriginalURL(id string) (string, error)
+	Ping() error
 }
 
 type Handler struct {
-	service URLService
+	service             URLService
 	baseAddressShortURL string
 }
 
@@ -30,14 +31,14 @@ type ResponseJSON struct {
 
 func New(baseAddressShortURL string, service URLService) *Handler {
 	return &Handler{
-		service: service,
+		service:             service,
 		baseAddressShortURL: baseAddressShortURL,
 	}
 }
 
 func (h *Handler) CreateShortURLJson(w http.ResponseWriter, r *http.Request) {
 	var request RequestJSON
-	
+
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		http.Error(w, constants.StatusInvalidJSON, http.StatusBadRequest)
@@ -125,4 +126,13 @@ func (h *Handler) RedirectURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", originalURL)
 	w.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+func (h *Handler) PingDatabase(w http.ResponseWriter, r *http.Request) {
+	if err := h.service.Ping(); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

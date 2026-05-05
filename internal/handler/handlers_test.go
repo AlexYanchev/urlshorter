@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,17 +12,25 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/AlexYanchev/urlshorter/internal/config"
 	"github.com/AlexYanchev/urlshorter/internal/constants"
 	"github.com/AlexYanchev/urlshorter/internal/repository"
 	"github.com/AlexYanchev/urlshorter/internal/service"
 	"github.com/go-chi/chi/v5"
 )
 
+type mockPingService struct {
+	URLService
+	err error
+}
+
+func (m mockPingService) Ping() error {
+	return m.err
+}
+
 func initService(t *testing.T) URLService {
 	t.Helper()
 
-	repo := repository.New(config.DefaultFileStoragePath)
+	repo := repository.New("")
 	service := service.New(repo)
 
 	return service
@@ -31,53 +40,53 @@ func TestHandler_CreateShortURLJSON(t *testing.T) {
 	testBody := RequestJSON{URL: "http://example.ru"}
 
 	tests := []struct {
-		name string
-		method string
-		body any
+		name           string
+		method         string
+		body           any
 		expectedStatus int
-		expectedBody string
-	} {
+		expectedBody   string
+	}{
 		{
-			name: "successful creation",
-			method: http.MethodPost,
-			body: testBody,
+			name:           "successful creation",
+			method:         http.MethodPost,
+			body:           testBody,
 			expectedStatus: http.StatusCreated,
-			expectedBody: `{"result":"http://localhost:8080/`,
+			expectedBody:   `{"result":"http://localhost:8080/`,
 		},
 		{
-			name: "empty body",
-			method: http.MethodPost,
-			body: RequestJSON{},
+			name:           "empty body",
+			method:         http.MethodPost,
+			body:           RequestJSON{},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody: constants.StatusInvalidURL,
+			expectedBody:   constants.StatusInvalidURL,
 		},
 		{
-			name: "wrong field body",
-			method: http.MethodPost,
-			body: struct{wrongField string}{wrongField: ""},
+			name:           "wrong field body",
+			method:         http.MethodPost,
+			body:           struct{ wrongField string }{wrongField: ""},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody: constants.StatusInvalidURL,
+			expectedBody:   constants.StatusInvalidURL,
 		},
 		{
-			name: "invalid url in json",
-			method: http.MethodPost,
-			body: RequestJSON{URL: "invalid-url"},
+			name:           "invalid url in json",
+			method:         http.MethodPost,
+			body:           RequestJSON{URL: "invalid-url"},
 			expectedStatus: http.StatusBadRequest,
-			expectedBody: constants.StatusInvalidURL,
+			expectedBody:   constants.StatusInvalidURL,
 		},
 		{
-			name: "wrong method - GET",
-			method: http.MethodGet,
-			body: testBody,
+			name:           "wrong method - GET",
+			method:         http.MethodGet,
+			body:           testBody,
 			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody: "",
+			expectedBody:   "",
 		},
 		{
-			name: "wrong method - PUT",
-			method: http.MethodPut,
-			body: testBody,
+			name:           "wrong method - PUT",
+			method:         http.MethodPut,
+			body:           testBody,
 			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody: "",
+			expectedBody:   "",
 		},
 	}
 
@@ -139,39 +148,39 @@ func TestHandler_CreateShortURL(t *testing.T) {
 	testPrefix := "http://"
 
 	tests := []struct {
-		name string
-		method string
-		body string
+		name           string
+		method         string
+		body           string
 		expectedStatus int
-		expectedBody string
-	} {
+		expectedBody   string
+	}{
 		{
-			name: "successful creation",
-			method: http.MethodPost,
-			body: testBody,
+			name:           "successful creation",
+			method:         http.MethodPost,
+			body:           testBody,
 			expectedStatus: http.StatusCreated,
-			expectedBody: testPrefix,
+			expectedBody:   testPrefix,
 		},
 		{
-			name: "empty body",
-			method: http.MethodPost,
-			body: "",
+			name:           "empty body",
+			method:         http.MethodPost,
+			body:           "",
 			expectedStatus: http.StatusBadRequest,
-			expectedBody: constants.StatusEmptyURL,
+			expectedBody:   constants.StatusEmptyURL,
 		},
 		{
-			name: "wrong method - GET",
-			method: http.MethodGet,
-			body: testBody,
+			name:           "wrong method - GET",
+			method:         http.MethodGet,
+			body:           testBody,
 			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody: "",
+			expectedBody:   "",
 		},
 		{
-			name: "wrong method - PUT",
-			method: http.MethodPut,
-			body: testBody,
+			name:           "wrong method - PUT",
+			method:         http.MethodPut,
+			body:           testBody,
 			expectedStatus: http.StatusMethodNotAllowed,
-			expectedBody: "",
+			expectedBody:   "",
 		},
 	}
 
@@ -249,38 +258,38 @@ func TestHandler_RedirectURL(t *testing.T) {
 	id := path.Base(parsedURL.Path)
 
 	tests := []struct {
-		name string
-		method string
-		id string
-		expectedStatus int
+		name             string
+		method           string
+		id               string
+		expectedStatus   int
 		expectedLocation string
-	} {
+	}{
 		{
-			name: "success redirect",
-			method: http.MethodGet,
-			id: id,
-			expectedStatus: http.StatusTemporaryRedirect,
+			name:             "success redirect",
+			method:           http.MethodGet,
+			id:               id,
+			expectedStatus:   http.StatusTemporaryRedirect,
 			expectedLocation: originalURL,
 		},
 		{
-			name: "ID non exist",
-			method: http.MethodGet,
-			id: "nonexist",
-			expectedStatus: http.StatusNotFound,
+			name:             "ID non exist",
+			method:           http.MethodGet,
+			id:               "nonexist",
+			expectedStatus:   http.StatusNotFound,
 			expectedLocation: "",
 		},
 		{
-			name: "wrong method - POST",
-			method: http.MethodPost,
-			id: id,
-			expectedStatus: http.StatusMethodNotAllowed,
+			name:             "wrong method - POST",
+			method:           http.MethodPost,
+			id:               id,
+			expectedStatus:   http.StatusMethodNotAllowed,
 			expectedLocation: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, "/" + tt.id, nil)
+			req := httptest.NewRequest(tt.method, "/"+tt.id, nil)
 			rr := httptest.NewRecorder()
 
 			r.ServeHTTP(rr, req)
@@ -294,6 +303,42 @@ func TestHandler_RedirectURL(t *testing.T) {
 				if location != tt.expectedLocation {
 					t.Errorf("returned wrong Location: got %v, want %v", location, tt.expectedLocation)
 				}
+			}
+		})
+	}
+}
+
+func TestHandler_PingDatabase(t *testing.T) {
+	tests := []struct {
+		name           string
+		service        URLService
+		expectedStatus int
+	}{
+		{
+			name:           "database is available",
+			service:        mockPingService{err: nil},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "database is unavailable",
+			service:        mockPingService{err: errors.New("ping failed")},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := New("http://localhost:8080", tt.service)
+			r := chi.NewRouter()
+			r.Get("/ping", h.PingDatabase)
+
+			req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+			rr := httptest.NewRecorder()
+
+			r.ServeHTTP(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("wrong returned status code: got %v want %v", rr.Code, tt.expectedStatus)
 			}
 		})
 	}
