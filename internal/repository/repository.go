@@ -33,21 +33,57 @@ func New(storagePath string) *Repository {
 
 func (r *Repository) Save(id, value string) error {
 	r.mu.Lock()
+	defer r.mu.Unlock()
 
+	if err := r.saveDataLocked(id, value); err != nil {
+		return err
+	}
+
+	if r.storagePath != "" {
+		if err := r.saveToFileLocked(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Repository) SaveBatch(items []model.BatchURLItem) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	batchIDs := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if _, exists := batchIDs[item.ShortURL]; exists {
+			return ErrDublicateID
+		}
+		batchIDs[item.ShortURL] = struct{}{}
+
+		if _, exists := r.data[item.ShortURL]; exists {
+			return ErrDublicateID
+		}
+	}
+
+	for _, item := range items {
+		r.data[item.ShortURL] = item.OriginalURL
+	}
+
+	if r.storagePath != "" {
+		if err := r.saveToFileLocked(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Repository) saveDataLocked(id, value string) error {
 	_, ok := r.data[id]
 	if ok {
 		return ErrDublicateID
 	}
 
 	r.data[id] = value
-
-	r.mu.Unlock()
-
-	if r.storagePath != "" {
-		if err := r.saveToFile(); err != nil {
-			return err
-		}
-	}
 
 	return nil
 }
@@ -89,10 +125,7 @@ func (r *Repository) load() error {
 	return nil
 }
 
-func (r *Repository) saveToFile() error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
+func (r *Repository) saveToFileLocked() error {
 	items := make([]model.URLItem, 0, len(r.data))
 	for shortURL, originalURL := range r.data {
 		items = append(items, model.URLItem{

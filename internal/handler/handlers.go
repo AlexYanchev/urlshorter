@@ -7,11 +7,13 @@ import (
 	"net/url"
 
 	"github.com/AlexYanchev/urlshorter/internal/constants"
+	"github.com/AlexYanchev/urlshorter/internal/service"
 	"github.com/go-chi/chi/v5"
 )
 
 type URLService interface {
 	CreateShortURL(originalURL string) (string, error)
+	CreateShortURLBatch(requests []service.BatchCreateRequest) ([]service.BatchCreateResult, error)
 	GetOriginalURL(id string) (string, error)
 	Ping() error
 }
@@ -27,6 +29,16 @@ type RequestJSON struct {
 
 type ResponseJSON struct {
 	Result string `json:"result"`
+}
+
+type BatchRequestJSON struct {
+	CorrelationID string `json:"correlation_id"`
+	OriginalURL   string `json:"original_url"`
+}
+
+type BatchResponseJSON struct {
+	CorrelationID string `json:"correlation_id"`
+	ShortURL      string `json:"short_url"`
 }
 
 func New(baseAddressShortURL string, service URLService) *Handler {
@@ -71,6 +83,64 @@ func (h *Handler) CreateShortURLJson(w http.ResponseWriter, r *http.Request) {
 
 	response := ResponseJSON{
 		Result: shortURL,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
+func (h *Handler) CreateShortURLBatch(w http.ResponseWriter, r *http.Request) {
+	var request []BatchRequestJSON
+
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, constants.StatusInvalidJSON, http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	if len(request) == 0 {
+		http.Error(w, constants.StatusInvalidJSON, http.StatusBadRequest)
+		return
+	}
+
+	serviceRequest := make([]service.BatchCreateRequest, 0, len(request))
+	for _, item := range request {
+		if item.CorrelationID == "" || item.OriginalURL == "" {
+			http.Error(w, constants.StatusInvalidURL, http.StatusBadRequest)
+			return
+		}
+
+		if _, err := url.ParseRequestURI(item.OriginalURL); err != nil {
+			http.Error(w, constants.StatusInvalidURL, http.StatusBadRequest)
+			return
+		}
+
+		serviceRequest = append(serviceRequest, service.BatchCreateRequest{
+			CorrelationID: item.CorrelationID,
+			OriginalURL:   item.OriginalURL,
+		})
+	}
+
+	serviceResponse, err := h.service.CreateShortURLBatch(serviceRequest)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	response := make([]BatchResponseJSON, 0, len(serviceResponse))
+	for _, item := range serviceResponse {
+		shortURL, err := url.JoinPath(h.baseAddressShortURL, item.ShortID)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+
+		response = append(response, BatchResponseJSON{
+			CorrelationID: item.CorrelationID,
+			ShortURL:      shortURL,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")

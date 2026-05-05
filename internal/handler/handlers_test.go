@@ -143,6 +143,107 @@ func TestHandler_CreateShortURLJSON(t *testing.T) {
 	}
 }
 
+func TestHandler_CreateShortURLBatch(t *testing.T) {
+	testBody := []BatchRequestJSON{
+		{
+			CorrelationID: "1",
+			OriginalURL:   "http://example.ru/1",
+		},
+		{
+			CorrelationID: "2",
+			OriginalURL:   "http://example.ru/2",
+		},
+	}
+
+	tests := []struct {
+		name           string
+		method         string
+		body           any
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:           "successful batch creation",
+			method:         http.MethodPost,
+			body:           testBody,
+			expectedStatus: http.StatusCreated,
+			expectedBody:   `"correlation_id":"1"`,
+		},
+		{
+			name:           "empty batch",
+			method:         http.MethodPost,
+			body:           []BatchRequestJSON{},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   constants.StatusInvalidJSON,
+		},
+		{
+			name:           "invalid url in batch",
+			method:         http.MethodPost,
+			body:           []BatchRequestJSON{{CorrelationID: "1", OriginalURL: "invalid-url"}},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   constants.StatusInvalidURL,
+		},
+		{
+			name:           "empty correlation id",
+			method:         http.MethodPost,
+			body:           []BatchRequestJSON{{CorrelationID: "", OriginalURL: "http://example.ru"}},
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   constants.StatusInvalidURL,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := initService(t)
+			h := New("http://localhost:8080", service)
+			r := chi.NewRouter()
+			r.Post("/api/shorten/batch", h.CreateShortURLBatch)
+
+			bodyData, err := json.Marshal(tt.body)
+			if err != nil {
+				t.Fatalf("failed to marshal JSON: %v", err)
+			}
+
+			req := httptest.NewRequest(tt.method, "/api/shorten/batch", bytes.NewReader(bodyData))
+			rr := httptest.NewRecorder()
+
+			r.ServeHTTP(rr, req)
+
+			if rr.Code != tt.expectedStatus {
+				t.Errorf("wrong returned status code: got %v want %v", rr.Code, tt.expectedStatus)
+			}
+
+			body, err := io.ReadAll(rr.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			bodyString := strings.TrimSpace(string(body))
+
+			if tt.expectedStatus == http.StatusCreated {
+				contentType := rr.Header().Get("Content-Type")
+				if contentType != "application/json" {
+					t.Errorf("wrong Content-Type: got %v, want application/json", contentType)
+				}
+
+				if !strings.Contains(bodyString, tt.expectedBody) {
+					t.Errorf("expected body to contain %q, got %q", tt.expectedBody, bodyString)
+				}
+
+				if !strings.Contains(bodyString, `"short_url":"http://localhost:8080/`) {
+					t.Errorf("expected short_url in response, got %q", bodyString)
+				}
+			} else {
+				bodyString = strings.TrimSuffix(bodyString, "\n")
+
+				if bodyString != tt.expectedBody {
+					t.Errorf("unexpected body: got %v want %v", bodyString, tt.expectedBody)
+				}
+			}
+		})
+	}
+}
+
 func TestHandler_CreateShortURL(t *testing.T) {
 	testBody := "http://example.ru"
 	testPrefix := "http://"

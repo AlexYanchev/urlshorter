@@ -37,6 +37,7 @@ func main() {
 	r.Use(middlewares.Gzip, middlewares.Logging)
 
 	r.Get("/ping", h.PingDatabase)
+	r.Post("/api/shorten/batch", h.CreateShortURLBatch)
 	r.Post("/api/shorten", h.CreateShortURLJson)
 	r.Post("/", h.CreateShortURL)
 	r.Get("/{id}", h.RedirectURL)

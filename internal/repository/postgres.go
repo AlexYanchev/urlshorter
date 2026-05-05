@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/AlexYanchev/urlshorter/internal/model"
 	"github.com/lib/pq"
 )
 
@@ -39,6 +40,38 @@ func (r *PostgresRepository) Save(id, value string) error {
 		}
 
 		return fmt.Errorf("failed to save url: %w", err)
+	}
+
+	return nil
+}
+
+func (r *PostgresRepository) SaveBatch(items []model.BatchURLItem) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`INSERT INTO short_urls (short_id, original_url) VALUES ($1, $2)`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare batch insert: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, item := range items {
+		_, err := stmt.Exec(item.ShortURL, item.OriginalURL)
+		if err != nil {
+			var pqErr *pq.Error
+			if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+				return ErrDublicateID
+			}
+
+			return fmt.Errorf("failed to save batch urls: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
