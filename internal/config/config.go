@@ -12,15 +12,16 @@ import (
 )
 
 const (
-	DefaultServerAddress = "localhost:8080"
-	DefaultBaseURL       = "http://localhost:8080"
-	DefaultFileStoragePath = "storage.json"
+	DefaultServerAddress   = "localhost:8080"
+	DefaultBaseURL         = "http://localhost:8080"
+	DefaultFileStoragePath = ""
 )
 
 type Config struct {
-	ServerAddress string `env:"SERVER_ADDRESS"`
-	BaseURL       string `env:"BASE_URL"`
-	FileStoragePath  string `env:"FILE_STORAGE_PATH"`
+	ServerAddress   string `env:"SERVER_ADDRESS"`
+	BaseURL         string `env:"BASE_URL"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
+	DatabaseDSN     string `env:"DATABASE_DSN"`
 }
 
 func (c *Config) ParseFlags() {
@@ -28,6 +29,7 @@ func (c *Config) ParseFlags() {
 	flagSet.StringVar(&c.ServerAddress, "a", DefaultServerAddress, "application launch address (for example, localhost:8888)")
 	flagSet.StringVar(&c.BaseURL, "b", DefaultBaseURL, "the base address for the short URL")
 	flagSet.StringVar(&c.FileStoragePath, "f", DefaultFileStoragePath, "file storage path")
+	flagSet.StringVar(&c.DatabaseDSN, "d", "", "database connection address")
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		log.Printf("flag parsing error: %v", err)
@@ -36,9 +38,9 @@ func (c *Config) ParseFlags() {
 
 func (c *Config) ParseEnv() {
 	err := env.Parse(c)
-    if err != nil {
-        log.Printf("env parsing error: %v. Use flags", err)
-    }
+	if err != nil {
+		log.Printf("env parsing error: %v. Use flags", err)
+	}
 }
 
 func (c *Config) normalize() {
@@ -61,7 +63,7 @@ func (c *Config) normalize() {
 
 	if !strings.HasPrefix(c.BaseURL, "http://") && !strings.HasPrefix(c.BaseURL, "https://") {
 		c.BaseURL = "http://" + c.BaseURL
-	} 
+	}
 }
 
 func NewConfig() *Config {
