@@ -22,7 +22,17 @@ func main() {
 	defer logger.SugaredLogger.Sync()
 
 	config := config.NewConfig()
-	repo := repository.New(config.FileStoragePath)
+	var repo service.URLRepository = repository.New(config.FileStoragePath)
+	if config.DatabaseDSN != "" {
+		postgresRepo, err := repository.NewPostgres(config.DatabaseDSN)
+		if err != nil {
+			logger.SugaredLogger.Fatalw("failed to connect database", "error", err)
+		}
+
+		defer postgresRepo.Close()
+		repo = postgresRepo
+	}
+
 	service := service.New(repo)
 
 	r := chi.NewRouter()
@@ -30,15 +40,17 @@ func main() {
 
 	r.Use(middlewares.Gzip, middlewares.Logging)
 
+	r.Get("/ping", h.PingDatabase)
 	r.Post("/api/shorten", h.CreateShortURLJson)
 	r.Post("/", h.CreateShortURL)
 	r.Get("/{id}", h.RedirectURL)
 
 	logger.SugaredLogger.Infow(
-        "Starting server",
-        "addr", config.ServerAddress,
-        "base_url", config.BaseURL,
-    )
+		"Starting server",
+		"addr", config.ServerAddress,
+		"base_url", config.BaseURL,
+		"database_dsn", config.DatabaseDSN,
+	)
 
 	err = http.ListenAndServe(config.ServerAddress, r)
 	if err != nil && err != http.ErrServerClosed {
