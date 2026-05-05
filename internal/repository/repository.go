@@ -53,6 +53,8 @@ func (r *Repository) SaveBatch(items []model.BatchURLItem) error {
 	defer r.mu.Unlock()
 
 	batchIDs := make(map[string]struct{}, len(items))
+	batchOriginalURLs := make(map[string]struct{}, len(items))
+	
 	for _, item := range items {
 		if _, exists := batchIDs[item.ShortURL]; exists {
 			return ErrDublicateID
@@ -61,6 +63,17 @@ func (r *Repository) SaveBatch(items []model.BatchURLItem) error {
 
 		if _, exists := r.data[item.ShortURL]; exists {
 			return ErrDublicateID
+		}
+
+		if _, exists := batchOriginalURLs[item.OriginalURL]; exists {
+			return ErrDuplicateOriginalURL
+		}
+		batchOriginalURLs[item.OriginalURL] = struct{}{}
+
+		for _, originalURL := range r.data {
+			if originalURL == item.OriginalURL {
+				return ErrDuplicateOriginalURL
+			}
 		}
 	}
 
@@ -83,6 +96,12 @@ func (r *Repository) saveDataLocked(id, value string) error {
 		return ErrDublicateID
 	}
 
+	for _, originalURL := range r.data {
+		if originalURL == value {
+			return ErrDuplicateOriginalURL
+		}
+	}
+
 	r.data[id] = value
 
 	return nil
@@ -95,6 +114,19 @@ func (r *Repository) Get(id string) (string, bool) {
 	value, ok := r.data[id]
 
 	return value, ok
+}
+
+func (r *Repository) GetByOriginalURL(originalURL string) (string, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for shortURL, savedOriginalURL := range r.data {
+		if savedOriginalURL == originalURL {
+			return shortURL, true
+		}
+	}
+
+	return "", false
 }
 
 func (r *Repository) Ping() error {

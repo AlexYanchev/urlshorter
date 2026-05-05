@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -70,6 +71,25 @@ func (h *Handler) CreateShortURLJson(w http.ResponseWriter, r *http.Request) {
 
 	shortID, err := h.service.CreateShortURL(request.URL)
 	if err != nil {
+		var duplicateErr *service.DuplicateOriginalURLError
+		
+		if errors.As(err, &duplicateErr) {
+			shortURL, joinErr := url.JoinPath(h.baseAddressShortURL, duplicateErr.ShortID)
+			if joinErr != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
+			response := ResponseJSON{
+				Result: shortURL,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -164,6 +184,21 @@ func (h *Handler) CreateShortURL(w http.ResponseWriter, r *http.Request) {
 
 	shortID, err := h.service.CreateShortURL(originalURL)
 	if err != nil {
+		var duplicateErr *service.DuplicateOriginalURLError
+
+		if errors.As(err, &duplicateErr) {
+			shortURL, joinErr := url.JoinPath(h.baseAddressShortURL, duplicateErr.ShortID)
+			if joinErr != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(shortURL))
+			return
+		}
+
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}

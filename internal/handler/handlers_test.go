@@ -143,6 +143,45 @@ func TestHandler_CreateShortURLJSON(t *testing.T) {
 	}
 }
 
+func TestHandler_CreateShortURLJSON_DuplicateOriginalURL(t *testing.T) {
+	service := initService(t)
+	h := New("http://localhost:8080", service)
+	r := chi.NewRouter()
+	r.Post("/api/shorten", h.CreateShortURLJson)
+
+	requestBody := RequestJSON{URL: "http://example.ru/duplicate"}
+	bodyData, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatalf("failed to marshal JSON: %v", err)
+	}
+
+	firstReq := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewReader(bodyData))
+	firstRes := httptest.NewRecorder()
+	r.ServeHTTP(firstRes, firstReq)
+
+	secondReq := httptest.NewRequest(http.MethodPost, "/api/shorten", bytes.NewReader(bodyData))
+	secondRes := httptest.NewRecorder()
+	r.ServeHTTP(secondRes, secondReq)
+
+	if secondRes.Code != http.StatusConflict {
+		t.Fatalf("wrong returned status code: got %v want %v", secondRes.Code, http.StatusConflict)
+	}
+
+	firstBody, err := io.ReadAll(firstRes.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	secondBody, err := io.ReadAll(secondRes.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.TrimSpace(string(firstBody)) != strings.TrimSpace(string(secondBody)) {
+		t.Fatalf("expected duplicate response to match original response: got %q want %q", string(secondBody), string(firstBody))
+	}
+}
+
 func TestHandler_CreateShortURLBatch(t *testing.T) {
 	testBody := []BatchRequestJSON{
 		{
@@ -328,6 +367,41 @@ func TestHandler_CreateShortURL(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestHandler_CreateShortURL_DuplicateOriginalURL(t *testing.T) {
+	service := initService(t)
+	h := New("http://localhost:8080", service)
+	r := chi.NewRouter()
+	r.Post("/", h.CreateShortURL)
+
+	body := "http://example.ru/duplicate"
+
+	firstReq := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	firstRes := httptest.NewRecorder()
+	r.ServeHTTP(firstRes, firstReq)
+
+	secondReq := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	secondRes := httptest.NewRecorder()
+	r.ServeHTTP(secondRes, secondReq)
+
+	if secondRes.Code != http.StatusConflict {
+		t.Fatalf("wrong returned status code: got %v want %v", secondRes.Code, http.StatusConflict)
+	}
+
+	firstBody, err := io.ReadAll(firstRes.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	secondBody, err := io.ReadAll(secondRes.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.TrimSpace(string(firstBody)) != strings.TrimSpace(string(secondBody)) {
+		t.Fatalf("expected duplicate response to match original response: got %q want %q", string(secondBody), string(firstBody))
 	}
 }
 

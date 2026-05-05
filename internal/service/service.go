@@ -14,6 +14,7 @@ type URLRepository interface {
 	Save(id, value string) error
 	SaveBatch(items []model.BatchURLItem) error
 	Get(id string) (string, bool)
+	GetByOriginalURL(originalURL string) (string, bool)
 	Ping() error
 }
 
@@ -29,6 +30,14 @@ type BatchCreateRequest struct {
 type BatchCreateResult struct {
 	CorrelationID string
 	ShortID       string
+}
+
+type DuplicateOriginalURLError struct {
+	ShortID string
+}
+
+func (e *DuplicateOriginalURLError) Error() string {
+	return "original URL already exists"
 }
 
 func New(r URLRepository) *Service {
@@ -50,6 +59,15 @@ func (s *Service) CreateShortURL(originalURL string) (string, error) {
 
 		if errors.Is(err, repository.ErrDublicateID) {
 			continue
+		}
+
+		if errors.Is(err, repository.ErrDuplicateOriginalURL) {
+			existingShortID, ok := s.repository.GetByOriginalURL(originalURL)
+			if !ok {
+				return "", fmt.Errorf("failed to get existing short url")
+			}
+
+			return "", &DuplicateOriginalURLError{ShortID: existingShortID}
 		}
 
 		return "", fmt.Errorf("failed to save: %w", err)

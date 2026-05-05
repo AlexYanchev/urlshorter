@@ -36,6 +36,10 @@ func (r *PostgresRepository) Save(id, value string) error {
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			if pqErr.Constraint == "short_urls_original_url_idx" {
+				return ErrDuplicateOriginalURL
+			}
+
 			return ErrDublicateID
 		}
 
@@ -43,6 +47,18 @@ func (r *PostgresRepository) Save(id, value string) error {
 	}
 
 	return nil
+}
+
+func (r *PostgresRepository) GetByOriginalURL(originalURL string) (string, bool) {
+	query := `SELECT short_id FROM short_urls WHERE original_url = $1`
+
+	var shortID string
+	err := r.db.QueryRow(query, originalURL).Scan(&shortID)
+	if err != nil {
+		return "", false
+	}
+
+	return shortID, true
 }
 
 func (r *PostgresRepository) SaveBatch(items []model.BatchURLItem) error {
