@@ -8,7 +8,6 @@ import (
 	"github.com/AlexYanchev/urlshorter/internal/handler"
 	"github.com/AlexYanchev/urlshorter/internal/logger"
 	"github.com/AlexYanchev/urlshorter/internal/middlewares"
-	"github.com/AlexYanchev/urlshorter/internal/repository"
 	"github.com/AlexYanchev/urlshorter/internal/service"
 	"github.com/go-chi/chi/v5"
 )
@@ -22,15 +21,12 @@ func main() {
 	defer logger.SugaredLogger.Sync()
 
 	config := config.NewConfig()
-	var repo service.URLRepository = repository.New(config.FileStoragePath)
-	if config.DatabaseDSN != "" {
-		postgresRepo, err := repository.NewPostgres(config.DatabaseDSN)
-		if err != nil {
-			logger.SugaredLogger.Fatalw("failed to connect database", "error", err)
-		}
-
-		defer postgresRepo.Close()
-		repo = postgresRepo
+	repo, closeRepo, err := buildRepository(config)
+	if err != nil {
+		logger.SugaredLogger.Fatalw("failed to build repository", "error", err)
+	}
+	if closeRepo != nil {
+		defer closeRepo()
 	}
 
 	service := service.New(repo)
@@ -50,6 +46,7 @@ func main() {
 		"addr", config.ServerAddress,
 		"base_url", config.BaseURL,
 		"database_dsn", config.DatabaseDSN,
+		"file_storage_path", config.FileStoragePath,
 	)
 
 	err = http.ListenAndServe(config.ServerAddress, r)

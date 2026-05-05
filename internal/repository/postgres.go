@@ -25,11 +25,6 @@ func NewPostgres(dsn string) (*PostgresRepository, error) {
 		return nil, fmt.Errorf("failed to connect database: %w", err)
 	}
 
-	if err := repo.initTable(); err != nil {
-		db.Close()
-		return nil, err
-	}
-
 	return repo, nil
 }
 
@@ -69,18 +64,6 @@ func (r *PostgresRepository) Close() error {
 	return r.db.Close()
 }
 
-func (r *PostgresRepository) initTable() error {
-	query := `
-		CREATE TABLE IF NOT EXISTS short_urls (
-			short_id TEXT PRIMARY KEY,
-			original_url TEXT NOT NULL
-		)
-	`
-
-	_, err := r.db.Exec(query)
-	if err != nil {
-		return fmt.Errorf("failed to create table: %w", err)
-	}
-
-	return nil
+func (r *PostgresRepository) DB() *sql.DB {
+	return r.db
 }

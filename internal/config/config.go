@@ -14,7 +14,7 @@ import (
 const (
 	DefaultServerAddress   = "localhost:8080"
 	DefaultBaseURL         = "http://localhost:8080"
-	DefaultFileStoragePath = "storage.json"
+	DefaultFileStoragePath = ""
 )
 
 type Config struct {

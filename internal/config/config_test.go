@@ -57,6 +57,7 @@ func TestConfig_UsesFlagDefaultsWhenNothingSet(t *testing.T) {
 
 	assert.Equal(t, DefaultServerAddress, cfg.ServerAddress)
 	assert.Equal(t, DefaultBaseURL, cfg.BaseURL)
+	assert.Equal(t, DefaultFileStoragePath, cfg.FileStoragePath)
 	assert.Equal(t, "", cfg.DatabaseDSN)
 }
 
