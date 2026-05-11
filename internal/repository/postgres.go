@@ -30,23 +30,38 @@ func NewPostgres(dsn string) (*PostgresRepository, error) {
 }
 
 func (r *PostgresRepository) Save(id, value string) error {
-	query := `INSERT INTO short_urls (short_id, original_url) VALUES ($1, $2)`
+	query := `
+		WITH inserted AS (
+			INSERT INTO short_urls (short_id, original_url)
+			VALUES ($1, $2)
+			ON CONFLICT (original_url) DO NOTHING
+			RETURNING short_id
+		)
+		SELECT short_id, true FROM inserted
+		UNION ALL
+		SELECT short_id, false
+		FROM short_urls
+		WHERE original_url = $2
+		  AND NOT EXISTS (SELECT 1 FROM inserted)
+	`
 
-	_, err := r.db.Exec(query, id, value)
-	if err != nil {
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
-			if pqErr.Constraint == "short_urls_original_url_idx" {
-				return ErrDuplicateOriginalURL
-			}
-
-			return ErrDublicateID
+	var shortID string
+	var inserted bool
+	err := r.db.QueryRow(query, id, value).Scan(&shortID, &inserted)
+	if err == nil {
+		if inserted {
+			return nil
 		}
 
-		return fmt.Errorf("failed to save url: %w", err)
+		return &DuplicateOriginalURLError{ShortID: shortID}
 	}
 
-	return nil
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+		return ErrDuplicateID
+	}
+
+	return fmt.Errorf("failed to save url: %w", err)
 }
 
 func (r *PostgresRepository) GetByOriginalURL(originalURL string) (string, bool) {
@@ -79,7 +94,11 @@ func (r *PostgresRepository) SaveBatch(items []model.BatchURLItem) error {
 		if err != nil {
 			var pqErr *pq.Error
 			if errors.As(err, &pqErr) && pqErr.Code == "23505" {
-				return ErrDublicateID
+				if pqErr.Constraint == "short_urls_original_url_idx" {
+					return ErrDuplicateOriginalURL
+				}
+
+				return ErrDuplicateID
 			}
 
 			return fmt.Errorf("failed to save batch urls: %w", err)

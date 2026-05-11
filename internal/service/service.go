@@ -57,17 +57,17 @@ func (s *Service) CreateShortURL(originalURL string) (string, error) {
 			return id, nil
 		}
 
-		if errors.Is(err, repository.ErrDublicateID) {
+		if errors.Is(err, repository.ErrDuplicateID) {
 			continue
 		}
 
-		if errors.Is(err, repository.ErrDuplicateOriginalURL) {
-			existingShortID, ok := s.repository.GetByOriginalURL(originalURL)
-			if !ok {
-				return "", fmt.Errorf("failed to get existing short url")
-			}
+		var duplicateErr *repository.DuplicateOriginalURLError
+		if errors.As(err, &duplicateErr) {
+			return "", &DuplicateOriginalURLError{ShortID: duplicateErr.ShortID}
+		}
 
-			return "", &DuplicateOriginalURLError{ShortID: existingShortID}
+		if errors.Is(err, repository.ErrDuplicateOriginalURL) {
+			return "", fmt.Errorf("failed to get existing short url")
 		}
 
 		return "", fmt.Errorf("failed to save: %w", err)
@@ -115,7 +115,7 @@ func (s *Service) CreateShortURLBatch(requests []BatchCreateRequest) ([]BatchCre
 			return results, nil
 		}
 
-		if errors.Is(err, repository.ErrDublicateID) {
+		if errors.Is(err, repository.ErrDuplicateID) {
 			continue
 		}
 

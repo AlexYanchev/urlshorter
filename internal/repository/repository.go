@@ -54,15 +54,15 @@ func (r *Repository) SaveBatch(items []model.BatchURLItem) error {
 
 	batchIDs := make(map[string]struct{}, len(items))
 	batchOriginalURLs := make(map[string]struct{}, len(items))
-	
+
 	for _, item := range items {
 		if _, exists := batchIDs[item.ShortURL]; exists {
-			return ErrDublicateID
+			return ErrDuplicateID
 		}
 		batchIDs[item.ShortURL] = struct{}{}
 
 		if _, exists := r.data[item.ShortURL]; exists {
-			return ErrDublicateID
+			return ErrDuplicateID
 		}
 
 		if _, exists := batchOriginalURLs[item.OriginalURL]; exists {
@@ -93,12 +93,12 @@ func (r *Repository) SaveBatch(items []model.BatchURLItem) error {
 func (r *Repository) saveDataLocked(id, value string) error {
 	_, ok := r.data[id]
 	if ok {
-		return ErrDublicateID
+		return ErrDuplicateID
 	}
 
-	for _, originalURL := range r.data {
+	for shortURL, originalURL := range r.data {
 		if originalURL == value {
-			return ErrDuplicateOriginalURL
+			return &DuplicateOriginalURLError{ShortID: shortURL}
 		}
 	}
 
